@@ -6,8 +6,10 @@ from openpyxl import load_workbook
 from datetime import date
 from openpyxl import Workbook
 import os
+import smtplib
 import json # for parsing data
 from pandas import DataFrame as df # premier library for data organization
+
 
 
 
@@ -72,6 +74,17 @@ def readProductLists(fileList):
     except Exception as e:
         print(e)
     return productList
+def getCredentials():
+    try:
+        with open("credentials.auth", 'r') as creds:
+            string = creds.readlines()
+        usr = string[0].strip()
+        pswd = string[1].strip()
+        return usr, pswd
+    except Exception as e:
+        print("Exception during geting the credentials:")
+        print(e)
+
 
 def format_title(title):
     #make sure that these chars are not in the title, else excel will error it out
@@ -82,12 +95,41 @@ def format_title(title):
         title = title[:30]
     return title
 
+def email_nofifier(usr, pswd, recieps):
+    #first customize the email
+    user = usr
+    password = pswd
+    sent_from = usr
+    sent_to = ", ".join(recieps)
+    subject = "Test email"
+    body = "Ello'"
+    email_text = """\
+Subject: {}
+
+{}""".format(subject, body)
+
+    try:
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+        server.ehlo()
+        server.login(user, password)
+        server.sendmail(sent_from, sent_to, email_text)
+        server.close()
+
+        print('Email sent!')
+    except Exception as e:
+        print("Something went wrong!")
+        print(e)
+
+
 def main():
     #load the list of products
     #opening spreadsheet
     filename = "Prices.xlsx"
     today = date.today()
     today = today.strftime("%B %d, %Y")
+    bot_user, bot_pswd = getCredentials()
+    #email_nofifier(bot_user, bot_pswd, ["florin.firanescu@gmail.com"])
+
     if not (os.path.exists(filename)):
         print("Creating a new excel file named : {}".format(filename))
         workbook = Workbook()
