@@ -70,7 +70,8 @@ def readProductLists(fileList):
                 if (line == ""):
                     continue
                 URL, perc, email_recips = line.split(',')
-                tempProduct = product_class(URL, perc, email_recips.split())
+                recips = email_recips.split()
+                tempProduct = product_class(URL, perc, recips)
 
                 tempProduct.print_attrs()
                 productList.append(tempProduct)
@@ -92,7 +93,6 @@ def getCredentials():
 def getMinRowValue(Sheet, column):
     list_of_prices = []
     for cell in Sheet[column]:
-        print(type(cell.value))
         if cell.value == "ReducedPrice" or cell.value is None: continue
         value = floatRepr(cell.value)
         list_of_prices.append(value)
@@ -113,7 +113,7 @@ def email_nofifier(usr, pswd, recieps, body):
     password = pswd
     sent_from = usr
     #sent_to is a list, we need it in a string format of recip1, recip2, etc...
-    sent_to = ", ".join(recieps)
+    sent_to = ', '.join(recieps)
     #subject = "Test email"
 
 
@@ -172,8 +172,9 @@ PS: thank you for letting me help you
         '''.format(title, self.reduction, URL, self.prev_price, self.actual_reducedPrice)
         email_text = """\
 Subject: {}
+To: {}
 
-    {}""".format(Subject, body)
+    {}""".format(Subject, ', '.join(self.email_recips) , body)
         return email_text
 
 
