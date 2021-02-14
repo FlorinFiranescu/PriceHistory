@@ -100,6 +100,7 @@ def email_nofifier(usr, pswd, recieps):
     user = usr
     password = pswd
     sent_from = usr
+    #sent_to is a list, we need it in a string format of recip1, recip2, etc...
     sent_to = ", ".join(recieps)
     subject = "Test email"
     body = "Ello'"
@@ -124,32 +125,34 @@ Subject: {}
 def main():
     #load the list of products
     #opening spreadsheet
-    filename = "Prices.xlsx"
+    excelName = "Prices.xlsx"
     today = date.today()
     today = today.strftime("%B %d, %Y")
     bot_user, bot_pswd = getCredentials()
     #email_nofifier(bot_user, bot_pswd, ["florin.firanescu@gmail.com"])
 
-    if not (os.path.exists(filename)):
-        print("Creating a new excel file named : {}".format(filename))
+    if not (os.path.exists(excelName)):
+        print("Creating a new excel file named : {}".format(excelName))
         workbook = Workbook()
         sheet = workbook.active
 
-        workbook.save(filename=filename)
+        workbook.save(filename=excelName)
 
-    excel_file = load_workbook(filename=filename)
+    excel_file = load_workbook(filename=excelName)
 
     productList = readProductLists("Products.txt")
+    #exit
+    #exit()
     if len(productList) == 0:
         exit("Product list is empty. Exiting...")
-    for eMagProduct in productList:
+    for pageProduct in productList:
         soup = BeautifulSoup()
-        emagRoot    = "https://www.emag.ro/"
-        URL = emagRoot + eMagProduct
+        pageRoot    = "https://www.emag.ro/"
+        URL = pageRoot + pageProduct
 
 
         try:
-            soup = request2BfSoupObj(emagRoot, eMagProduct)
+            soup = request2BfSoupObj(pageRoot, pageProduct)
         except Exception as e:
             print(e)
             print("Bad request response. Next product!")
@@ -168,15 +171,15 @@ def main():
         if title not in excel_file.sheetnames:
             excel_file.create_sheet(title)
             excel_file[title].append(['Date', 'Link', 'BasePrice', 'ReducedPrice', 'Email_recip'])
-            excel_file.save(filename)
-            excel_file = load_workbook(filename=filename)
+            excel_file.save(excelName)
+            excel_file = load_workbook(filename=excelName)
         productSheet = excel_file[title]
         if productSheet['A{}'.format(productSheet.max_row)].value == today:
             print("Same day")
         else:
             productSheet.append([today, URL, basePrice, reducedPrice, "florin.firanescu@gmail.com"])
         time.sleep(2)
-    excel_file.save(filename)
+    excel_file.save(excelName)
 
 if __name__ == "__main__":
     main()
