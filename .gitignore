@@ -5,6 +5,7 @@ __pycache__/
 
 #my files
 *credentials.auth
+*Products.txt
 
 # C extensions
 *.so

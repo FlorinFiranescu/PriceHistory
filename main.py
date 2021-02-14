@@ -7,6 +7,7 @@ from datetime import date
 from openpyxl import Workbook
 import os
 import smtplib
+from email.mime.text import MIMEText
 import json # for parsing data
 from pandas import DataFrame as df # premier library for data organization
 
@@ -107,21 +108,25 @@ def format_title(title):
         title = title[:30]
     return title
 
-def email_nofifier(usr, pswd, recieps, body):
+def email_nofifier(usr, pswd, recip, body, subject):
     #first customize the email
     user = usr
     password = pswd
-    sent_from = usr
     #sent_to is a list, we need it in a string format of recip1, recip2, etc...
-    sent_to = ', '.join(recieps)
     #subject = "Test email"
+    email = MIMEText("{}".format(body))
+    sender = usr
+    recipients = recip
+    email['Subject'] = subject
+    email['From'] = sender
+    email['To'] = ", ".join(recipients)
 
 
     try:
         server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
         server.ehlo()
         server.login(user, password)
-        server.sendmail(sent_from, sent_to, body)
+        server.sendmail(sender, recipients, email.as_string())
         server.close()
 
         print('Email sent!')
@@ -157,8 +162,10 @@ class product_class:
     def print_attrs(self):
         print('URL: {}\nperc: {}\n emails: {}\n'.format(self.URL, self.percentage, self.email_recips))
 
+    def getSubject(self):
+        return "Florin here. Good news, one of you wish-list products has been reduced by {:.2f}%!".format(self.reduction)
+
     def getBody(self, title, URL):
-        Subject = "Florin here. Good news, one of you wish-list products has been reduced by {:.2f}%!".format(self.reduction)
         body    = '''
   Hello, the product entitled {} has been reduced by {:.2f}%.
 This URL will get you directly to it: {}
@@ -170,12 +177,7 @@ PS: thank you for letting me help you
   Best regards,
     Florin F.
         '''.format(title, self.reduction, URL, self.prev_price, self.actual_reducedPrice)
-        email_text = """\
-Subject: {}
-To: {}
-
-    {}""".format(Subject, ', '.join(self.email_recips) , body)
-        return email_text
+        return body
 
 
     def calculatePercentage(self):
@@ -250,7 +252,7 @@ def main():
         else:
             if (float(pageProduct.calculatePercentage()) > float(pageProduct.percentage)
                     and getMinRowValue(productSheet, 'D') > floatRepr(pageProduct.actual_reducedPrice)):
-                email_nofifier(bot_user, bot_pswd, pageProduct.email_recips, pageProduct.getBody(true_title, URL))
+                email_nofifier(bot_user, bot_pswd, pageProduct.email_recips, pageProduct.getBody(true_title, URL), pageProduct.getSubject())
                 pageProduct.email_triggered = 1
             recips =  ', '.join(pageProduct.email_recips)
             print(recips)
