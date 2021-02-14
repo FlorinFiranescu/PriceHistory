@@ -67,10 +67,13 @@ def readProductLists(fileList):
         with open(fileList, 'r') as f:
             for line in f.readlines():
                 line = line.strip()
-                if(line == ""):
+                if (line == ""):
                     continue
-                productList.append(line)
-            print(productList)
+                URL, perc, email_recips = line.split(',')
+                tempProduct = product_class(URL, perc, email_recips.split())
+
+                tempProduct.print_attrs()
+                productList.append(tempProduct)
     except Exception as e:
         print(e)
     return productList
@@ -86,6 +89,15 @@ def getCredentials():
         print(e)
 
 
+def getMinRowValue(Sheet, column):
+    list_of_prices = []
+    for cell in Sheet[column]:
+        print(type(cell.value))
+        if cell.value == "ReducedPrice" or cell.value is None: continue
+        value = floatRepr(cell.value)
+        list_of_prices.append(value)
+    return min(list_of_prices)
+
 def format_title(title):
     #make sure that these chars are not in the title, else excel will error it out
     for ch in ['\\', '/', '*', '?' , ':' , '[' , ']']:
@@ -95,25 +107,21 @@ def format_title(title):
         title = title[:30]
     return title
 
-def email_nofifier(usr, pswd, recieps):
+def email_nofifier(usr, pswd, recieps, body):
     #first customize the email
     user = usr
     password = pswd
     sent_from = usr
     #sent_to is a list, we need it in a string format of recip1, recip2, etc...
     sent_to = ", ".join(recieps)
-    subject = "Test email"
-    body = "Ello'"
-    email_text = """\
-Subject: {}
+    #subject = "Test email"
 
-{}""".format(subject, body)
 
     try:
         server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
         server.ehlo()
         server.login(user, password)
-        server.sendmail(sent_from, sent_to, email_text)
+        server.sendmail(sent_from, sent_to, body)
         server.close()
 
         print('Email sent!')
@@ -121,6 +129,64 @@ Subject: {}
         print("Something went wrong!")
         print(e)
 
+def calculate_percDecrease(prev_price, actual_price):
+    if(prev_price == 0 or actual_price == 0):
+        raise ValueError("\nOne of the prices is null:\n{}\n{}\n".format(prev_price, actual_price))
+    prev = float(prev_price)
+    actual = float(actual_price)
+    diff = prev - actual
+    return (diff/actual)*100
+
+def floatRepr(string):
+    myString = string.replace('.', '')
+    myString = myString.replace(',', '.')
+    return float(myString)
+
+class product_class:
+
+    def __init__(self, URL, percentage, email_recips):
+        self.URL = URL
+        self.percentage = percentage
+        self.email_recips = email_recips
+        self.prev_price = ""
+        self.actual_reducedPrice = ""
+        self.actual_basePrice    = ""
+        self.reduction = 0
+        self.email_triggered = 0
+
+    def print_attrs(self):
+        print('URL: {}\nperc: {}\n emails: {}\n'.format(self.URL, self.percentage, self.email_recips))
+
+    def getBody(self, title, URL):
+        Subject = "Florin here. Good news, one of you wish-list products has been reduced by {:.2f}%!".format(self.reduction)
+        body    = '''
+  Hello, the product entitled {} has been reduced by {:.2f}%.
+This URL will get you directly to it: {}
+The price when we first started to monitor it was   : {}
+The current reduced price is                        : {}
+Grab it as fast as you can, hope you will like it :)
+PS: thank you for letting me help you
+
+  Best regards,
+    Florin F.
+        '''.format(title, self.reduction, URL, self.prev_price, self.actual_reducedPrice)
+        email_text = """\
+Subject: {}
+
+    {}""".format(Subject, body)
+        return email_text
+
+
+    def calculatePercentage(self):
+        #first format our prices
+        prev_price = floatRepr(self.prev_price)
+        actual_price = floatRepr(self.actual_reducedPrice)
+
+        if(prev_price == 0 or actual_price == 0):
+            raise ValueError("\nOne of the prices is null:\n{}\n{}\n".format(self.prev_price, self.actual_reducedPrice))
+        diff = prev_price - actual_price
+        self.reduction = (diff/actual_price)*100
+        return self.reduction
 
 def main():
     #load the list of products
@@ -130,7 +196,8 @@ def main():
     today = today.strftime("%B %d, %Y")
     bot_user, bot_pswd = getCredentials()
     #email_nofifier(bot_user, bot_pswd, ["florin.firanescu@gmail.com"])
-
+    #print(calculate_percDecrease(0, 89))
+    #exit()
     if not (os.path.exists(excelName)):
         print("Creating a new excel file named : {}".format(excelName))
         workbook = Workbook()
@@ -141,18 +208,17 @@ def main():
     excel_file = load_workbook(filename=excelName)
 
     productList = readProductLists("Products.txt")
-    #exit
-    #exit()
+
     if len(productList) == 0:
         exit("Product list is empty. Exiting...")
     for pageProduct in productList:
         soup = BeautifulSoup()
         pageRoot    = "https://www.emag.ro/"
-        URL = pageRoot + pageProduct
+        URL = pageRoot + pageProduct.URL
 
 
         try:
-            soup = request2BfSoupObj(pageRoot, pageProduct)
+            soup = request2BfSoupObj(pageRoot, pageProduct.URL)
         except Exception as e:
             print(e)
             print("Bad request response. Next product!")
@@ -160,8 +226,10 @@ def main():
         try:
             title = soup.title.string
             basePrice, reducedPrice = productPrice(soup, title)
+            pageProduct.actual_basePrice    = basePrice
+            pageProduct.actual_reducedPrice = reducedPrice
             print("URL                  : {}".format(URL))
-            print("Product name         : {}\nProduct base price   : {}\nProduct reduced price: {}".format(title, basePrice, reducedPrice))
+            print("Product name         : {}\nProduct base price   : {}\nProduct reduced price: {}".format(title, pageProduct.actual_basePrice, pageProduct.actual_reducedPrice))
         except Exception as e:
             print(e)
             print("Continuing to next product")
@@ -170,14 +238,22 @@ def main():
         title = format_title(title)
         if title not in excel_file.sheetnames:
             excel_file.create_sheet(title)
-            excel_file[title].append(['Date', 'Link', 'BasePrice', 'ReducedPrice', 'Email_recip'])
+            excel_file[title].append(['Date', 'Link', 'BasePrice', 'ReducedPrice', 'Email_recip', 'Email_notification'])
             excel_file.save(excelName)
             excel_file = load_workbook(filename=excelName)
         productSheet = excel_file[title]
+        pageProduct.prev_price = productSheet['D2'].value
+
         if productSheet['A{}'.format(productSheet.max_row)].value == today:
             print("Same day")
         else:
-            productSheet.append([today, URL, basePrice, reducedPrice, "florin.firanescu@gmail.com"])
+            if (float(pageProduct.calculatePercentage()) > float(pageProduct.percentage)
+                    and getMinRowValue(productSheet, 'D') > floatRepr(pageProduct.actual_reducedPrice)):
+                email_nofifier(bot_user, bot_pswd, pageProduct.email_recips, pageProduct.getBody(title, URL))
+                pageProduct.email_triggered = 1
+            recips =  ', '.join(pageProduct.email_recips)
+            print(recips)
+            productSheet.append([today, URL, pageProduct.actual_basePrice, pageProduct.actual_reducedPrice, recips, pageProduct.email_triggered ])
         time.sleep(2)
     excel_file.save(excelName)
 
