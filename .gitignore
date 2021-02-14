@@ -6,7 +6,7 @@ __pycache__/
 #my files
 *credentials.auth
 *Products.txt
-
+*Prices.xlsx
 # C extensions
 *.so
 
