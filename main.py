@@ -156,20 +156,20 @@ def main():
 
         true_title = title
         title = formatTitle(title)
+        recips = ', '.join(pageProduct.email_recips)
         if title not in excel_file.sheetnames:
             excel_file.create_sheet(title)
             excel_file[title].append(['Date', 'Link', 'BasePrice', 'ReducedPrice', 'Email_recip', 'Email_notification'])
+            # first attempt
+            excel_file[title].append([today, URL, pageProduct.actual_basePrice, pageProduct.actual_reducedPrice, recips,
+                                 pageProduct.email_triggered])
             excel_file.save(excelName)
-            excel_file = load_workbook(filename=excelName)
+            continue
         productSheet = excel_file[title]
         pageProduct.prev_price = productSheet['D2'].value
-        recips = ', '.join(pageProduct.email_recips)
+
         if productSheet['A{}'.format(productSheet.max_row)].value == today:
             print("Same day")
-        elif productSheet.max_row == 2:
-            #first attempt
-            productSheet.append([today, URL, pageProduct.actual_basePrice, pageProduct.actual_reducedPrice, recips,
-                                 pageProduct.email_triggered])
         else:
             if (float(pageProduct.calculatePercentage()) > float(pageProduct.percentage)
                     and getMinRowValue(productSheet, 'D') > floatRepr(pageProduct.actual_reducedPrice)):
