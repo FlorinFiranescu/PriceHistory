@@ -15,8 +15,12 @@ def getMinRowValue(Sheet, column):
     return min(list_of_prices)
 
 def floatRepr(string):
-    myString = string.replace('.', '')
-    myString = myString.replace(',', '.')
+    myString = string
+    try:
+        myString = string.replace('.', '')
+        myString = myString.replace(',', '.')
+    except:
+        raise ValueError("Problem while formating the price {}".format(myString))
     return float(myString)
 
 def formatTitle(title):
